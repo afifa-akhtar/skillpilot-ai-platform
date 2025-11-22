@@ -97,13 +97,7 @@ export default function LearnerLoginPage() {
               {loading ? 'Logging in...' : 'Log In'}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account? </span>
-            <Link href="/learner/register" className="text-indigo-600 hover:underline">
-              Create Account
-            </Link>
-          </div>
-          <div className="mt-2 text-center">
+          <div className="mt-4 text-center">
             <Link href="/" className="text-sm text-muted-foreground hover:underline">
               ← Back to home
             </Link>

@@ -134,14 +134,10 @@ CREATE POLICY "Admins can read all users" ON public.users
 CREATE POLICY "Tech stacks are readable by all" ON public.tech_stacks
   FOR SELECT USING (auth.role() = 'authenticated');
 
--- Only admins can manage tech stacks
+-- Only admins can manage tech stacks (using is_admin() to avoid RLS recursion)
+-- Note: This will be replaced by more specific policies in later migrations
 CREATE POLICY "Admins can manage tech stacks" ON public.tech_stacks
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE users.id = auth.uid() AND users.role = 'admin'
-    )
-  );
+  FOR ALL USING (public.is_admin());
 
 -- Learners can manage their own profile
 CREATE POLICY "Learners can manage own profile" ON public.learner_profiles

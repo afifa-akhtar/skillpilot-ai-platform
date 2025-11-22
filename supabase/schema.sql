@@ -123,14 +123,29 @@ CREATE POLICY "Users can read own data" ON public.users
 
 -- Function to check if user is admin (bypasses RLS to avoid infinite recursion)
 CREATE OR REPLACE FUNCTION public.is_admin()
-RETURNS BOOLEAN AS $$
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  is_admin_user boolean;
 BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM public.users
-    WHERE id = auth.uid() AND role = 'admin'
-  );
+  -- Use SECURITY DEFINER to bypass RLS
+  -- Query users table directly without RLS restrictions
+  SELECT EXISTS (
+    SELECT 1 
+    FROM public.users 
+    WHERE id = auth.uid() 
+    AND role = 'admin'
+  ) INTO is_admin_user;
+  
+  RETURN COALESCE(is_admin_user, false);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
+
+-- Grant execute permission
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated, anon, service_role;
 
 -- Admins can read all users
 CREATE POLICY "Admins can read all users" ON public.users
@@ -140,14 +155,9 @@ CREATE POLICY "Admins can read all users" ON public.users
 CREATE POLICY "Tech stacks are readable by all" ON public.tech_stacks
   FOR SELECT USING (auth.role() = 'authenticated');
 
--- Only admins can manage tech stacks
+-- Only admins can manage tech stacks (using is_admin() to avoid RLS recursion)
 CREATE POLICY "Admins can manage tech stacks" ON public.tech_stacks
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE users.id = auth.uid() AND users.role = 'admin'
-    )
-  );
+  FOR ALL USING (public.is_admin());
 
 -- Learners can manage their own profile
 CREATE POLICY "Learners can manage own profile" ON public.learner_profiles

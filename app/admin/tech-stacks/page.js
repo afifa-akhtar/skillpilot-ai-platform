@@ -24,8 +24,27 @@ export default function TechStacksPage() {
   })
 
   useEffect(() => {
-    loadTechStacks()
+    checkAuth()
   }, [])
+
+  const checkAuth = async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser()
+      if (error || !user) {
+        router.push('/admin/login')
+        return
+      }
+
+      // Just verify user is logged in - let RLS handle admin verification
+      // If user is not admin, RLS will block the queries and show appropriate errors
+      console.log('User authenticated:', user.email)
+      loadTechStacks()
+    } catch (error) {
+      console.error('Auth error:', error)
+      toast.error('Authentication error. Please try logging in again.')
+      router.push('/admin/login')
+    }
+  }
 
   const loadTechStacks = async () => {
     try {
@@ -34,11 +53,20 @@ export default function TechStacksPage() {
         .select('*')
         .order('name')
 
-      if (error) throw error
+      if (error) {
+        console.error('Error loading tech stacks:', error)
+        // If RLS blocks, user might not be admin
+        if (error.code === '42501' || error.message?.includes('row-level security')) {
+          toast.error('Access denied. Admin privileges required.')
+          router.push('/admin/login')
+          return
+        }
+        throw error
+      }
       setTechStacks(data || [])
     } catch (error) {
       console.error('Error loading tech stacks:', error)
-      toast.error('Failed to load tech stacks')
+      toast.error(error.message || 'Failed to load tech stacks')
     }
   }
 
@@ -47,22 +75,55 @@ export default function TechStacksPage() {
     setLoading(true)
 
     try {
+      // Get current session to ensure auth context is available
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session) {
+        toast.error('Please log in')
+        return
+      }
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         toast.error('Please log in')
         return
       }
 
-      const { error } = await supabase
+      // Verify user is admin before attempting insert
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (userError) {
+        console.error('Error checking user role:', userError)
+        toast.error('Error verifying admin status. Please try again.')
+        return
+      }
+
+      if (!userData || userData.role !== 'admin') {
+        console.error('User is not admin:', { userId: user.id, role: userData?.role, email: user.email })
+        toast.error('Access denied. Admin privileges required.')
+        return
+      }
+
+      console.log('Attempting to insert tech stack as admin:', user.email)
+      
+      const { data, error } = await supabase
         .from('tech_stacks')
         .insert({
           name: formData.name,
           description: formData.description,
           created_by: user.id
         })
+        .select()
 
-      if (error) throw error
+      if (error) {
+        console.error('Insert error details:', error)
+        throw error
+      }
 
+      console.log('Tech stack inserted successfully:', data)
       toast.success('Tech stack added successfully!')
       setFormData({ name: '', description: '' })
       setDialogOpen(false)

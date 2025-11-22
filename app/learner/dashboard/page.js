@@ -51,16 +51,13 @@ export default function LearnerDashboard() {
       setUser(authUser)
       setUserEmail(authUser.email || '')
       
-      // Get user name from profile or email
-      const { data: userData } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authUser.id)
-        .single()
-      
+      // Get user name from profile or email (userData already fetched above)
       if (userData) {
         const emailName = authUser.email?.split('@')[0] || 'User'
         setUserName(userData.full_name || emailName)
+      } else {
+        const emailName = authUser.email?.split('@')[0] || 'User'
+        setUserName(emailName)
       }
     } catch (error) {
       console.error('Auth error:', error)
@@ -285,34 +282,62 @@ export default function LearnerDashboard() {
             ) : (
               <Card>
                 <CardContent className="py-12 text-center">
-                  <p className="text-muted-foreground mb-4">No active learning plan</p>
-                  <Link href="/learner/create-plan">
-                    <Button className="bg-indigo-600 hover:bg-indigo-700">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create Your First Learning Plan
-                    </Button>
-                  </Link>
+                  {!profile || !profile.is_complete ? (
+                    <>
+                      <p className="text-muted-foreground mb-4">Please complete your profile first</p>
+                      <Link href="/learner/profile">
+                        <Button className="bg-yellow-500 hover:bg-yellow-600 text-white">
+                          <User className="mr-2 h-4 w-4" />
+                          Complete Profile
+                        </Button>
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-muted-foreground mb-4">No active learning plan</p>
+                      <Link href="/learner/create-plan">
+                        <Button className="bg-indigo-600 hover:bg-indigo-700">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create Your First Learning Plan
+                        </Button>
+                      </Link>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             )}
           </TabsContent>
 
           <TabsContent value="plans" className="space-y-4">
-            {learningPlans.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <p className="text-muted-foreground mb-4">No learning plans yet</p>
-                  {!currentPlan && (
-                    <Link href="/learner/create-plan">
-                      <Button className="bg-indigo-600 hover:bg-indigo-700">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Your First Plan
+          {learningPlans.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                {!profile || !profile.is_complete ? (
+                  <>
+                    <p className="text-muted-foreground mb-4">Please complete your profile first</p>
+                    <Link href="/learner/profile">
+                      <Button className="bg-yellow-500 hover:bg-yellow-600 text-white">
+                        <User className="mr-2 h-4 w-4" />
+                        Complete Profile
                       </Button>
                     </Link>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
+                  </>
+                ) : (
+                  <>
+                    <p className="text-muted-foreground mb-4">No learning plans yet</p>
+                    {!currentPlan && (
+                      <Link href="/learner/create-plan">
+                        <Button className="bg-indigo-600 hover:bg-indigo-700">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create Your First Plan
+                        </Button>
+                      </Link>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
               <>
                 {currentPlan && (
                   <Card className="border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-white">
@@ -381,13 +406,27 @@ export default function LearnerDashboard() {
             {!currentPlan ? (
               <Card>
                 <CardContent className="py-12 text-center">
-                  <p className="text-muted-foreground mb-4">No active learning plan</p>
-                  <Link href="/learner/create-plan">
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create a Learning Plan
-                    </Button>
-                  </Link>
+                  {!profile || !profile.is_complete ? (
+                    <>
+                      <p className="text-muted-foreground mb-4">Please complete your profile first</p>
+                      <Link href="/learner/profile">
+                        <Button className="bg-yellow-500 hover:bg-yellow-600 text-white">
+                          <User className="mr-2 h-4 w-4" />
+                          Complete Profile
+                        </Button>
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-muted-foreground mb-4">No active learning plan</p>
+                      <Link href="/learner/create-plan">
+                        <Button>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create a Learning Plan
+                        </Button>
+                      </Link>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             ) : (
