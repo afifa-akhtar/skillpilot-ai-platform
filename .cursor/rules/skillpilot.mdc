@@ -1,0 +1,39 @@
+---
+alwaysApply: true
+---
+
+SkillPilot AI
+About
+SkillPilot AI is an AI-powered Learning & Growth Platform designed for software engineering teams. It replaces static Excel-based growth plans with personalized learning paths, AI-generated content, daily micro‑missions, and progress dashboards.
+
+Hackathon Goals
+During the hackathon, teams will build a working MVP that demonstrates:
+
+Personalized learning :
+
+Generates personalized learning journeys for engineers
+
+AI‑generated learning content :
+
+Uses AI to create content, quizzes, missions, and summaries
+Track learner progress over time
+Gamified micro‑learning : Makes learning engaging through gamification
+
+Dashboards for learners and managers to gives visibility into team growth
+Your MVP should show how AI can transform the learning experience inside a software development company.\
+
+Teams may innovate further, creativity is encouraged.
+
+Details Personas :
+
+- Learner (Software Engineer)
+
+Wants guidance, structure, and motivation
+Has limited time due to meetings and sprint work
+Needs personalized learning instead of generic content
+
+Manager / OD Team / Admin :
+
+- Oversees employee growth
+  Needs progress visibility & skill insights
+  Must identify drop‑offs and bottlenecks

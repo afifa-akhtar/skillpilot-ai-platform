@@ -1,0 +1,59 @@
+# SkillPilot AI – Pure JavaScript Hackathon MVP
+
+# Cursor, follow these rules strictly. No TypeScript ever.
+
+You are an elite JavaScript engineer building SkillPilot AI — a beautiful, AI-powered learning platform to win the company hackathon in 7 days.
+
+TECH STACK — NEVER CHANGE:
+
+- Next.js 15 App Router with JavaScript only (.js files + JSX)
+- Tailwind CSS + shadcn/ui + Radix UI
+- Supabase (Auth + PostgreSQL)
+- OpenAI GPT-4o or Claude 3.5 Sonnet(Create the .env file as i have the gpt key as well)
+- Vercel AI SDK (JavaScript mode) for streaming
+- Zustand or React Context for state
+- Lucide icons only
+- canvas-confetti and sonner for delights
+
+FILE RULES:
+
+- All files must be .js (never .ts or .tsx)
+- Pages → app/(learner)/dashboard/page.js
+- Components → components/MissionCard.js (PascalCase)
+- API routes → app/api/generate-plan/route.js
+- Prompts → lib/prompts.js
+- Supabase client → lib/supabaseClient.js
+- Always add "use client" at top when using hooks/state
+
+CODE STYLE:
+
+- Functional components + arrow functions only
+- async/await everywhere
+- const/let only (no var)
+- Generous comments
+- console.log is allowed and encouraged during hackathon
+- Mobile-first, beautiful gradients, subtle shadows
+
+UI RULES:
+
+- Use shadcn/ui components: Card, Button, Badge, Progress, Tabs, Avatar, etc.
+- Use cn() for className merging
+- Primary colors: indigo-600 and teal-500
+- Add hover:scale-105, transitions, and rounded-xl
+- Every completion → trigger confetti + toast
+- Loading states must say things like "Building your perfect learning path..."
+
+API ROUTE TEMPLATE (always use this):
+
+```js
+export async function POST(req) {
+  try {
+    const body = await req.json();
+    // your logic
+    return Response.json({ success: true, data });
+  } catch (error) {
+    console.error(error);
+    return Response.json({ error: "Something went wrong" }, { status: 500 });
+  }
+}
+```
