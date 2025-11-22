@@ -307,23 +307,21 @@ export default function LearningItemPage() {
       </div>\n\n`
     })
     
-    // Handle Udemy links - make them prominent and beautiful
+    // Handle Udemy links - compact and clean
     const udemyRegex = /(https?:\/\/www\.udemy\.com\/course\/[^\s)]+)/gi
     formatted = formatted.replaceAll(udemyRegex, (url) => {
       const cleanUrl = url.replace(/[.,;!?]+$/, '')
-      // Extract course name from URL if possible
-      const courseName = cleanUrl.split('/').pop()?.replace(/-/g, ' ').replace(/\d+/g, '').trim() || 'Udemy Course'
-      return `<div class="udemy-link my-6 p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-300 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
-        <div class="flex items-start gap-4">
-          <div class="w-14 h-14 bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-            <span class="text-white font-bold text-xl">U</span>
+      // Clean up course name - remove "Web Development Bootcamp" etc
+      const courseName = cleanUrl.split('/').pop()?.replace(/-/g, ' ').replace(/\d+/g, '').replace(/web\s+development\s+bootcamp/gi, '').trim() || 'Udemy Course'
+      return `<div class="udemy-link my-3 p-3 bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg flex items-center justify-center flex-shrink-0">
+            <span class="text-white font-bold text-sm">U</span>
           </div>
           <div class="flex-1 min-w-0">
-            <p class="font-bold text-lg text-gray-900 mb-2">🎓 Premium Course on Udemy</p>
-            <p class="text-sm text-gray-600 mb-3 line-clamp-2">${courseName}</p>
-            <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors duration-200 text-sm">
-              <span>Enroll Now</span>
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-md transition-colors text-xs">
+              <span>View on Udemy</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
               </svg>
             </a>
@@ -336,16 +334,18 @@ export default function LearningItemPage() {
     const udemyMarkdownRegex = /\[([^\]]+)\]\((https?:\/\/www\.udemy\.com\/course\/[^\s)]+)\)/gi
     formatted = formatted.replaceAll(udemyMarkdownRegex, (match, linkText, url) => {
       const cleanUrl = url.replace(/[.,;!?]+$/, '')
-      return `<div class="udemy-link my-6 p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-300 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
-        <div class="flex items-start gap-4">
-          <div class="w-14 h-14 bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-            <span class="text-white font-bold text-xl">U</span>
+      // Clean link text - remove common prefixes
+      const cleanLinkText = linkText.replace(/^(web\s+)?development\s+bootcamp/gi, '').trim() || 'Udemy Course'
+      return `<div class="udemy-link my-3 p-3 bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg flex items-center justify-center flex-shrink-0">
+            <span class="text-white font-bold text-sm">U</span>
           </div>
           <div class="flex-1 min-w-0">
-            <p class="font-bold text-lg text-gray-900 mb-2">🎓 ${linkText}</p>
-            <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors duration-200 text-sm">
-              <span>View Course on Udemy</span>
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <p class="text-xs font-medium text-gray-700 mb-1.5">${cleanLinkText}</p>
+            <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-md transition-colors text-xs">
+              <span>View Course</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
               </svg>
             </a>
@@ -354,43 +354,116 @@ export default function LearningItemPage() {
       </div>`
     })
     
-    // Detect and format other URLs (GitHub, documentation, etc.) with better styling
+    // Handle markdown links [text](url) for better display
+    const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi
+    formatted = formatted.replaceAll(markdownLinkRegex, (match, linkText, url) => {
+      // Skip if already processed (YouTube or Udemy)
+      const isVideoOrCourse = url.includes('youtube.com') || url.includes('youtu.be') || url.includes('udemy.com')
+      if (isVideoOrCourse) {
+        return match // Return original to be processed by specific handlers
+      }
+      
+      const cleanUrl = url.replace(/[.,;!?]+$/, '')
+      
+      // Determine icon and styling based on URL type
+      let icon = '🔗'
+      let bgColor = 'bg-blue-50'
+      let borderColor = 'border-blue-200'
+      let buttonColor = 'bg-blue-600 hover:bg-blue-700'
+      
+      if (cleanUrl.includes('github.com')) {
+        icon = '💻'
+        bgColor = 'bg-gray-50'
+        borderColor = 'border-gray-200'
+        buttonColor = 'bg-gray-700 hover:bg-gray-800'
+      } else if (cleanUrl.includes('developer.mozilla.org') || cleanUrl.includes('mdn')) {
+        icon = '📘'
+        bgColor = 'bg-indigo-50'
+        borderColor = 'border-indigo-200'
+        buttonColor = 'bg-indigo-600 hover:bg-indigo-700'
+      } else if (cleanUrl.includes('nodejs.org') || cleanUrl.includes('docs')) {
+        icon = '📚'
+        bgColor = 'bg-green-50'
+        borderColor = 'border-green-200'
+        buttonColor = 'bg-green-600 hover:bg-green-700'
+      }
+      
+      // Clean link text - remove common prefixes
+      const cleanLinkText = linkText.replace(/^(web\s+)?development\s+bootcamp/gi, '').trim() || linkText
+      
+      return `<div class="resource-link my-2 p-2.5 ${bgColor} ${borderColor} border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5 flex-1 min-w-0">
+            <span class="text-sm">${icon}</span>
+            <span class="text-xs font-medium text-gray-700">${cleanLinkText}</span>
+          </div>
+          <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2.5 py-1 ${buttonColor} text-white font-medium rounded-md transition-colors text-xs whitespace-nowrap">
+            <span>Visit</span>
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+            </svg>
+          </a>
+        </div>
+      </div>`
+    })
+    
+    // Detect and format other URLs (GitHub, documentation, etc.) with compact styling
     const urlRegex = /(https?:\/\/[^\s)]+|github\.com\/[^\s)]+|www\.[^\s)]+)/gi
     formatted = formatted.replaceAll(urlRegex, (url) => {
-      // Skip if already processed (YouTube or Udemy)
+      // Skip if already processed (YouTube, Udemy, or markdown links)
       const isVideoOrCourse = url.includes('youtube.com') || url.includes('youtu.be') || url.includes('udemy.com')
       if (isVideoOrCourse) {
         return url
       }
       
-      const cleanUrl = url.replace(/[.,;!?]+$/, '')
-      const displayUrl = cleanUrl.length > 60 ? `${cleanUrl.substring(0, 60)}...` : cleanUrl
+      // Skip if it's part of a markdown link (already processed)
+      if (formatted.includes(`href="${url}"`)) {
+        return url
+      }
       
-      // Determine icon based on URL type
+      const cleanUrl = url.replace(/[.,;!?]+$/, '')
+      
+      // Determine icon and styling based on URL type
       let icon = '🔗'
-      let bgColor = 'bg-indigo-50'
-      let textColor = 'text-indigo-700'
-      let borderColor = 'border-indigo-200'
+      let label = 'Resource'
+      let bgColor = 'bg-blue-50'
+      let borderColor = 'border-blue-200'
+      let buttonColor = 'bg-blue-600 hover:bg-blue-700'
       
       if (cleanUrl.includes('github.com')) {
         icon = '💻'
+        label = 'GitHub'
         bgColor = 'bg-gray-50'
-        textColor = 'text-gray-700'
         borderColor = 'border-gray-200'
+        buttonColor = 'bg-gray-700 hover:bg-gray-800'
+      } else if (cleanUrl.includes('developer.mozilla.org') || cleanUrl.includes('mdn')) {
+        icon = '📘'
+        label = 'MDN Docs'
+        bgColor = 'bg-indigo-50'
+        borderColor = 'border-indigo-200'
+        buttonColor = 'bg-indigo-600 hover:bg-indigo-700'
       } else if (cleanUrl.includes('nodejs.org') || cleanUrl.includes('docs')) {
         icon = '📚'
-        bgColor = 'bg-blue-50'
-        textColor = 'text-blue-700'
-        borderColor = 'border-blue-200'
+        label = 'Documentation'
+        bgColor = 'bg-green-50'
+        borderColor = 'border-green-200'
+        buttonColor = 'bg-green-600 hover:bg-green-700'
       }
       
-      return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-3 py-2 ${bgColor} ${borderColor} border rounded-lg ${textColor} hover:${textColor.replace('700', '900')} hover:shadow-sm transition-all duration-200 font-medium text-sm my-2">
-        <span>${icon}</span>
-        <span class="break-all">${displayUrl}</span>
-        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-        </svg>
-      </a>`
+      return `<div class="resource-link my-2 p-2.5 ${bgColor} ${borderColor} border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5 flex-1 min-w-0">
+            <span class="text-sm">${icon}</span>
+            <span class="text-xs font-medium text-gray-700">${label}</span>
+          </div>
+          <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2.5 py-1 ${buttonColor} text-white font-medium rounded-md transition-colors text-xs whitespace-nowrap">
+            <span>Visit</span>
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+            </svg>
+          </a>
+        </div>
+      </div>`
     })
     
     return formatted

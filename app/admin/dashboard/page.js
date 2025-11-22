@@ -342,16 +342,17 @@ export default function AdminDashboard() {
                 ) : (
                   <div className="space-y-3">
                     {learners.map(learner => {
-                      // Find pending plan for this learner (only one plan per learner)
-                      const pendingPlan = learningPlans.find(
-                        p => p.learner_id === learner.id && p.status === 'pending_approval'
-                      )
+                      // Find plans for this learner (only one plan per learner)
                       const activePlan = learningPlans.find(
                         p => p.learner_id === learner.id && (p.status === 'approved' || p.status === 'in_progress')
                       )
                       const completedPlan = learningPlans.find(
                         p => p.learner_id === learner.id && p.status === 'completed'
                       )
+                      // Only show pending plan if there's no active or completed plan
+                      const pendingPlan = !activePlan && !completedPlan ? learningPlans.find(
+                        p => p.learner_id === learner.id && p.status === 'pending_approval'
+                      ) : null
                       const anyPlan = learningPlans.find(p => p.learner_id === learner.id)
 
                       return (
