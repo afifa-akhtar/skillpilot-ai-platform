@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,8 +14,9 @@ import { Loader2, MessageSquare, Send, BookOpen } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 
-export default function CreateLearningPlanPage() {
+function CreateLearningPlanPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [improving, setImproving] = useState(false)
@@ -41,7 +42,13 @@ export default function CreateLearningPlanPage() {
     checkActivePlan()
     loadTechStacks()
     loadUserTechStacks()
-  }, [])
+    
+    // Load draft if draft ID is in query params
+    const draftId = searchParams.get('draft')
+    if (draftId) {
+      loadDraftPlan(draftId)
+    }
+  }, [searchParams])
 
   const checkActivePlan = async () => {
     try {
@@ -109,6 +116,70 @@ export default function CreateLearningPlanPage() {
       }
     } catch (error) {
       console.error('Error loading user tech stacks:', error)
+    }
+  }
+
+  const loadDraftPlan = async (draftId) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: draft, error } = await supabase
+        .from('learning_plans')
+        .select('*')
+        .eq('id', draftId)
+        .eq('learner_id', user.id)
+        .eq('status', 'draft')
+        .single()
+
+      if (error) throw error
+
+      if (draft) {
+        // Populate form with draft data
+        setFormData({
+          goals: draft.goals || '',
+          hoursPerWeek: draft.hours_per_week?.toString() || '',
+          months: draft.months?.toString() || '',
+          isProjectRelated: draft.is_project_related || false,
+          projectName: draft.project_name || '',
+          selectedTechStacks: draft.tech_stacks || []
+        })
+
+        // Load the generated/adjusted plan
+        if (draft.adjusted_plan) {
+          setAdjustedPlan(draft.adjusted_plan)
+          setGeneratedPlan(draft.adjusted_plan)
+        } else if (draft.generated_plan) {
+          setAdjustedPlan(draft.generated_plan)
+          setGeneratedPlan(draft.generated_plan)
+        }
+
+        // Set plan ID for updates
+        setPlanId(draft.id)
+
+        // Load chat messages if any
+        if (draft.id) {
+          const { data: messages } = await supabase
+            .from('admin_chat_messages')
+            .select(`
+              *,
+              users (
+                role
+              )
+            `)
+            .eq('learning_plan_id', draft.id)
+            .order('created_at', { ascending: true })
+
+          if (messages) {
+            setChatMessages(messages)
+          }
+        }
+
+        toast.success('Draft plan loaded')
+      }
+    } catch (error) {
+      console.error('Error loading draft plan:', error)
+      toast.error('Failed to load draft plan')
     }
   }
 
@@ -975,5 +1046,20 @@ export default function CreateLearningPlanPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function CreateLearningPlanPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    }>
+      <CreateLearningPlanPageContent />
+    </Suspense>
   )
 }

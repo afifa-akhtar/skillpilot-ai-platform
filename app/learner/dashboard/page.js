@@ -9,8 +9,16 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
-import { BookOpen, Plus, CheckCircle, Clock, FileText, LogOut, User, Edit, Medal, ArrowRight } from 'lucide-react'
+import { BookOpen, Plus, CheckCircle, Clock, FileText, LogOut, User, Edit, Medal, ArrowRight, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function LearnerDashboard() {
   const router = useRouter()
@@ -19,6 +27,7 @@ export default function LearnerDashboard() {
   const [profile, setProfile] = useState(null)
   const [learningPlans, setLearningPlans] = useState([])
   const [currentPlan, setCurrentPlan] = useState(null)
+  const [draftPlan, setDraftPlan] = useState(null)
   const [learningItems, setLearningItems] = useState([])
   const [userEmail, setUserEmail] = useState('')
   const [userName, setUserName] = useState('')
@@ -93,6 +102,12 @@ export default function LearnerDashboard() {
       if (activePlan) {
         setCurrentPlan(activePlan)
         loadLearningItems(activePlan.id)
+      }
+
+      // Load draft plan if exists
+      const draftPlan = plans?.find(p => p.status === 'draft')
+      if (draftPlan) {
+        setDraftPlan(draftPlan)
       }
     } catch (error) {
       console.error('Error loading data:', error)
@@ -178,22 +193,41 @@ export default function LearnerDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-teal-50">
-      <nav className="bg-white border-b">
+      <nav className="bg-white border-b relative z-10 overflow-visible">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-teal-500 bg-clip-text text-transparent">
             SkillPilot AI
           </h1>
           <div className="flex items-center gap-4">
-            <Link href="/learner/profile">
-              <Button variant="outline" size="sm">
-                <User className="mr-2 h-4 w-4" />
-                {profile?.is_complete ? 'Edit Profile' : 'Complete Profile'}
-              </Button>
-            </Link>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </Button>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">{userName}</span>
+              <span className="text-sm text-muted-foreground">•</span>
+              <span className="text-sm text-muted-foreground">{userEmail}</span>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <User className="mr-2 h-4 w-4" />
+                  {profile?.is_complete ? 'Edit Profile' : 'Complete Profile'}
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 z-[100]" sideOffset={5}>
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/learner/profile" className="cursor-pointer w-full">
+                    <User className="mr-2 h-4 w-4" />
+                    {profile?.is_complete ? 'Edit Profile' : 'Complete Profile'}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </nav>
@@ -274,6 +308,40 @@ export default function LearnerDashboard() {
                       <Link href={`/learner/learn/${currentPlan.id}`}>
                         <BookOpen className="mr-2 h-4 w-4" />
                         Continue Learning
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : draftPlan ? (
+              <Card className="border-2 border-yellow-200 bg-gradient-to-br from-yellow-50 to-white">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-xl">Draft Learning Plan</CardTitle>
+                      <CardDescription className="mt-2">{draftPlan.goals}</CardDescription>
+                    </div>
+                    <Badge variant="outline" className="border-yellow-500 text-yellow-700">
+                      Draft
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Time Commitment:</span>
+                      <p className="font-medium">{draftPlan.hours_per_week} hours/week • {draftPlan.months} months</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Created:</span>
+                      <p className="font-medium">{new Date(draftPlan.created_at).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
+                      <Link href={`/learner/create-plan?draft=${draftPlan.id}`} className="flex items-center justify-center">
+                        <Edit className="mr-2 h-4 w-4 text-white" />
+                        Continue Editing
                       </Link>
                     </Button>
                   </div>
