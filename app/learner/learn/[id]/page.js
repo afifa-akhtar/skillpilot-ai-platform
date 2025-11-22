@@ -235,15 +235,16 @@ export default function LearnPage() {
                             {canAccessModule(index) ? (
                               <>
                                 <Button asChild size="sm" variant="outline">
+                                                                      <BookOpen className="mr-2 h-4 w-4" />
                                   <Link href={`/learner/learn/${params.id}/item/${item.id}`}>
-                                    <BookOpen className="mr-2 h-4 w-4" />
                                     {item.status === 'not_started' ? 'Start Learning' : 'Continue Learning'}
                                   </Link>
                                 </Button>
                                 {item.status === 'in_progress' && (
                                   <Button asChild size="sm" className="bg-teal-500 hover:bg-teal-600">
+                                                                          <FileText className="mr-2 h-4 w-4" />
+
                                     <Link href={`/learner/learn/${params.id}/item/${item.id}/assessment`}>
-                                      <FileText className="mr-2 h-4 w-4" />
                                       Take Assessment
                                     </Link>
                                   </Button>

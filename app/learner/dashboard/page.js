@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
-import { BookOpen, Plus, CheckCircle, Clock, FileText, LogOut, User, Edit, Medal, ArrowRight, ChevronDown } from 'lucide-react'
+import { BookOpen, Plus, CheckCircle, Clock, FileText, LogOut, User, Edit, Medal, ArrowRight, ChevronDown, Eye } from 'lucide-react'
 import Link from 'next/link'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,13 +29,33 @@ export default function LearnerDashboard() {
   const [learningPlans, setLearningPlans] = useState([])
   const [currentPlan, setCurrentPlan] = useState(null)
   const [draftPlan, setDraftPlan] = useState(null)
+  const [pendingPlan, setPendingPlan] = useState(null)
   const [learningItems, setLearningItems] = useState([])
   const [userEmail, setUserEmail] = useState('')
   const [userName, setUserName] = useState('')
+  const [showPendingDetails, setShowPendingDetails] = useState(false)
 
   useEffect(() => {
     checkAuth()
     loadData()
+  }, [])
+
+  // Reload data when component becomes visible (e.g., after returning from another page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData()
+      }
+    }
+    const handleFocus = () => {
+      loadData()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [])
 
   const checkAuth = async () => {
@@ -102,12 +123,27 @@ export default function LearnerDashboard() {
       if (activePlan) {
         setCurrentPlan(activePlan)
         loadLearningItems(activePlan.id)
+      } else {
+        setCurrentPlan(null)
       }
 
-      // Load draft plan if exists
+      // Load pending approval plan (only one plan can be pending at a time)
+      const pendingApprovalPlan = plans?.find(p => p.status === 'pending_approval')
+      console.log('Pending approval plan found:', pendingApprovalPlan ? { id: pendingApprovalPlan.id, status: pendingApprovalPlan.status } : 'none')
+      if (pendingApprovalPlan) {
+        setPendingPlan(pendingApprovalPlan)
+      } else {
+        setPendingPlan(null)
+      }
+
+      // Load draft plan if exists (only show if status is still 'draft', not 'pending_approval')
       const draftPlan = plans?.find(p => p.status === 'draft')
+      console.log('Draft plan found:', draftPlan ? { id: draftPlan.id, status: draftPlan.status } : 'none')
       if (draftPlan) {
         setDraftPlan(draftPlan)
+      } else {
+        // Clear draft plan if it no longer exists or status changed
+        setDraftPlan(null)
       }
     } catch (error) {
       console.error('Error loading data:', error)
@@ -212,7 +248,7 @@ export default function LearnerDashboard() {
                   <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 z-[100]" sideOffset={5}>
+              <DropdownMenuContent align="end" className="w-56 z-[100] bg-white" sideOffset={5}>
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
@@ -231,6 +267,57 @@ export default function LearnerDashboard() {
           </div>
         </div>
       </nav>
+
+      {/* Pending Plan Details Dialog */}
+      <Dialog open={showPendingDetails} onOpenChange={setShowPendingDetails}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Learning Plan Details - Pending Approval</DialogTitle>
+            <DialogDescription>
+              Your learning plan is currently under review by the admin team.
+            </DialogDescription>
+          </DialogHeader>
+          {pendingPlan && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg">Goals</h3>
+                <p className="text-sm text-muted-foreground">{pendingPlan.goals}</p>
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-semibold mb-2">Time Commitment</h3>
+                  <p className="text-sm">{pendingPlan.hours_per_week} hours/week • {pendingPlan.months} months</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Submitted</h3>
+                  <p className="text-sm">{new Date(pendingPlan.created_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              {pendingPlan.is_project_related && pendingPlan.project_name && (
+                <div>
+                  <h3 className="font-semibold mb-2">Related Project</h3>
+                  <p className="text-sm">{pendingPlan.project_name}</p>
+                </div>
+              )}
+
+              <div>
+                <h3 className="font-semibold mb-2">Learning Plan Content</h3>
+                <div className="whitespace-pre-wrap text-sm leading-relaxed bg-gray-50 p-4 rounded-lg border max-h-[400px] overflow-y-auto">
+                  {pendingPlan.adjusted_plan || pendingPlan.generated_plan || 'No plan content available'}
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={() => setShowPendingDetails(false)} variant="outline">
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="overview" className="space-y-6">
@@ -304,11 +391,46 @@ export default function LearnerDashboard() {
                     </div>
                   </div>
                   <div className="flex gap-4">
-                    <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
+                    <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                                             <BookOpen className="mr-2 h-4 w-4" />
                       <Link href={`/learner/learn/${currentPlan.id}`}>
-                        <BookOpen className="mr-2 h-4 w-4" />
                         Continue Learning
                       </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : pendingPlan ? (
+              <Card className="border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-white">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-xl">Pending Approval</CardTitle>
+                      <CardDescription className="mt-2">{pendingPlan.goals}</CardDescription>
+                    </div>
+                    <Badge variant="outline" className="border-orange-500 text-orange-700">
+                      Pending Approval
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Time Commitment:</span>
+                      <p className="font-medium">{pendingPlan.hours_per_week} hours/week • {pendingPlan.months} months</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Submitted:</span>
+                      <p className="font-medium">{new Date(pendingPlan.created_at).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <Button 
+                      onClick={() => setShowPendingDetails(true)}
+                      className="bg-orange-600 hover:bg-orange-700 text-white w-full sm:w-auto"
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      View Details
                     </Button>
                   </div>
                 </CardContent>
@@ -422,7 +544,7 @@ export default function LearnerDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="flex gap-2">
-                        <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-700">
+                        <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white">
                           <Link href={`/learner/learn/${currentPlan.id}`}>
                             <BookOpen className="mr-2 h-4 w-4" />
                             Continue Learning
@@ -514,7 +636,7 @@ export default function LearnerDashboard() {
                       </div>
                       <Progress value={calculateProgress()} />
                     </div>
-                    <Button asChild>
+                    <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white">
                       <Link href={`/learner/learn/${currentPlan.id}`}>
                         <BookOpen className="mr-2 h-4 w-4" />
                         Continue Learning

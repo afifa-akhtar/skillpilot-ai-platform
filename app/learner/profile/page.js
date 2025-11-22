@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { X } from 'lucide-react'
+import { X, ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
 
 export default function LearnerProfilePage() {
   const router = useRouter()
@@ -181,7 +182,13 @@ export default function LearnerProfilePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-teal-50 p-4 py-8">
-      <div className="container mx-auto max-w-4xl">
+      <div className="container mx-auto max-w-4xl space-y-4">
+        <Link href="/learner/dashboard">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </Link>
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">Your Profile</CardTitle>
@@ -256,7 +263,7 @@ export default function LearnerProfilePage() {
                     <SelectTrigger>
                       <SelectValue placeholder="Add a tech stack" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white z-50">
                       {availableTechStacks.map(ts => (
                         <SelectItem key={ts.id} value={ts.id}>
                           {ts.name}
@@ -292,7 +299,7 @@ export default function LearnerProfilePage() {
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="bg-white z-50">
                               <SelectItem value="Beginner">Beginner</SelectItem>
                               <SelectItem value="Intermediate">Intermediate</SelectItem>
                               <SelectItem value="Advanced">Advanced</SelectItem>

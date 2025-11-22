@@ -203,13 +203,13 @@ export default function ApprovePlanPage() {
         loadPlan() // Reload to get updated items
       }
 
-      // Add AI response message
+      // Add AI response message (prefix with [AI] to identify)
       await supabase
         .from('admin_chat_messages')
         .insert({
           learning_plan_id: params.id,
           sender_id: user.id,
-          message: 'Learning plan has been updated based on your feedback.'
+          message: '[AI] Learning plan has been updated based on your feedback.'
         })
 
       loadChatMessages()
@@ -229,11 +229,7 @@ export default function ApprovePlanPage() {
       return
     }
 
-    // Validate redeemable points
-    if (!points || points <= 0) {
-      toast.error('Please enter redeemable points before approving the plan')
-      return
-    }
+    // Redeemable points are now optional - no validation needed
 
     setLoading(true)
 
@@ -312,6 +308,7 @@ export default function ApprovePlanPage() {
       }
 
       toast.success('Learning plan approved successfully!')
+      // Navigate back to dashboard - it will refresh on visibility change
       setTimeout(() => {
         router.push('/admin/dashboard')
       }, 1000)
@@ -340,6 +337,7 @@ export default function ApprovePlanPage() {
       if (error) throw error
 
       toast.success('Learning plan rejected')
+      // Navigate back to dashboard - it will refresh on visibility change
       router.push('/admin/dashboard')
     } catch (error) {
       console.error('Error rejecting plan:', error)
@@ -558,23 +556,18 @@ export default function ApprovePlanPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="points">Redeemable Points *</Label>
+                <Label htmlFor="points">Redeemable Points (Optional)</Label>
                 <Input
                   id="points"
                   type="number"
-                  min="1"
-                  required
+                  min="0"
                   value={points}
                   onChange={(e) => setPoints(parseInt(e.target.value) || 0)}
-                  placeholder="Enter points (required)"
-                  className={points <= 0 ? 'border-red-300' : ''}
+                  placeholder="Enter points (optional)"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Points can be redeemed outside the system upon completion
+                  Points can be redeemed outside the system upon completion. Leave empty if not applicable.
                 </p>
-                {points <= 0 && (
-                  <p className="text-xs text-red-600">Redeemable points are required to approve the plan</p>
-                )}
               </div>
             </CardContent>
           </Card>
@@ -589,68 +582,90 @@ export default function ApprovePlanPage() {
               <CardDescription>Chat with AI to improve and adjust the learning plan.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2 h-96 overflow-y-auto border rounded-lg p-4 bg-gray-50">
+              {/* Chat Messages */}
+              <div className="space-y-2 max-h-[400px] overflow-y-auto border rounded-lg p-4 bg-gray-50 min-h-[200px]">
                 {chatMessages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
-                    <MessageSquare className="h-12 w-12 text-gray-400 mb-3" />
-                    <p className="text-sm text-muted-foreground mb-2">No messages yet.</p>
-                    <p className="text-xs text-muted-foreground">
-                      Ask the AI to help refine the learning plan.
+                  <div className="flex flex-col items-center justify-center h-full py-8">
+                    <MessageSquare className="h-12 w-12 text-gray-300 mb-2" />
+                    <p className="text-sm text-muted-foreground text-center">
+                      No messages yet
+                    </p>
+                    <p className="text-xs text-muted-foreground text-center mt-1">
+                      Ask the AI to help refine the learning plan
                     </p>
                   </div>
                 ) : (
-                  chatMessages.map(msg => (
-                    <div
-                      key={msg.id}
-                      className={`p-3 rounded-lg mb-2 ${
-                        msg.users?.role === 'admin'
-                          ? 'bg-indigo-100 ml-auto max-w-[80%]'
-                          : 'bg-gray-100 mr-auto max-w-[80%]'
-                      }`}
-                    >
-                      <p className="text-xs font-medium mb-1">
-                        {msg.users?.role === 'admin' ? 'Admin' : msg.users?.email || 'Learner'}
-                      </p>
-                      <p className="text-sm">{msg.message}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {new Date(msg.created_at).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  ))
+                  chatMessages.map((msg, idx) => {
+                    // Check if message is from AI
+                    const isAIMessage = msg.sender === 'ai' || 
+                                      msg.message?.startsWith('[AI]') ||
+                                      msg.message === 'Learning plan has been updated based on your feedback.'
+                    
+                    // Check if message is from admin
+                    const isAdmin = msg.users?.role === 'admin' && !isAIMessage
+                    
+                    // Check if message is from learner
+                    const isLearner = msg.users?.role === 'learner' && !isAIMessage
+                    
+                    // Clean message text (remove [AI] prefix if present)
+                    const messageText = msg.message?.startsWith('[AI]') 
+                      ? msg.message.replace('[AI]', '').trim()
+                      : msg.message
+                    
+                    return (
+                      <div
+                        key={msg.id || idx}
+                        className={`p-3 rounded-lg mb-2 ${
+                          isAdmin
+                            ? 'bg-indigo-100 ml-auto max-w-[80%]'
+                            : isLearner
+                            ? 'bg-blue-100 mr-auto max-w-[80%]'
+                            : 'bg-white mr-auto max-w-[80%] border'
+                        }`}
+                      >
+                        <p className="text-xs font-medium mb-1 text-gray-600">
+                          {isAdmin ? 'You (Admin)' : isLearner ? 'Learner' : isAIMessage ? 'AI' : 'System'}
+                        </p>
+                        <p className="text-sm">{messageText}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(msg.created_at).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    )
+                  })
                 )}
               </div>
-              <div className="space-y-2">
+
+              {/* Chat Input */}
+              <div className="flex gap-2">
                 <Input
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                   placeholder="Ask AI to adjust the plan... (e.g., 'Add more practical exercises' or 'Reduce the timeline')"
                   disabled={improving}
-                  className="w-full"
+                  className="flex-1"
                 />
-                <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <Lightbulb className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-blue-800">
-                    <span className="font-medium">Tip:</span> You can ask the AI to adjust difficulty, add specific topics, or restructure modules.
-                  </p>
-                </div>
-                <Button 
+                <Button
                   onClick={handleSendMessage}
                   disabled={improving || !newMessage.trim()}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700"
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                  size="icon"
                 >
                   {improving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <>
-                      <Send className="mr-2 h-4 w-4" />
-                      Send Message
-                    </>
+                    <Send className="h-4 w-4" />
                   )}
                 </Button>
+              </div>
+
+              {/* Tip */}
+              <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <Lightbulb className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-blue-800">
+                  <span className="font-semibold">Tip:</span> You can ask the AI to adjust difficulty, add specific topics, or restructure modules.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -662,7 +677,11 @@ export default function ApprovePlanPage() {
             <div className="flex items-center gap-2 text-sm text-gray-700">
               <GraduationCap className="h-5 w-5 text-indigo-600" />
               <span>
-                Allocating <span className="font-bold text-green-600">{points || 0} points</span> upon completion
+                {points > 0 ? (
+                  <>Allocating <span className="font-bold text-green-600">{points} points</span> upon completion</>
+                ) : (
+                  <>No points allocated (optional)</>
+                )}
               </span>
             </div>
             <div className="flex gap-3">
@@ -677,7 +696,7 @@ export default function ApprovePlanPage() {
               </Button>
               <Button
                 onClick={handleApprove}
-                disabled={loading || points <= 0}
+                disabled={loading}
                 className="bg-indigo-600 hover:bg-indigo-700"
               >
                 <CheckCircle className="mr-2 h-4 w-4" />

@@ -23,6 +23,70 @@ export default function LearningItemPage() {
     loadItem()
   }, [params.itemId])
 
+  // Auto-generate content when item is loaded and has no content
+  useEffect(() => {
+    if (item && !loading && !content && !generating) {
+      console.log('Auto-generating content for item:', item.id)
+      // Use a small delay to ensure state is properly set
+      const timer = setTimeout(() => {
+        handleGenerateContent()
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item, loading, content, generating])
+
+  // Check and hide unavailable YouTube videos
+  useEffect(() => {
+    if (!content) return
+
+    const checkVideos = () => {
+      const wrappers = document.querySelectorAll('.youtube-embed-wrapper')
+      for (const wrapper of wrappers) {
+        const videoId = wrapper.dataset.videoId
+        if (videoId) {
+          // Check thumbnail to determine if video is available
+          const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+          const img = new Image()
+          
+          img.onload = () => {
+            // YouTube's unavailable video thumbnails are typically 120x90 or 480x360 (default)
+            // Available videos usually have larger thumbnails (1280x720 for maxresdefault)
+            // If thumbnail is small, it's likely the default "unavailable" image
+            if (img.naturalWidth <= 480 && img.naturalHeight <= 360) {
+              wrapper.style.display = 'none'
+              console.log(`Hiding unavailable video: ${videoId} (thumbnail size: ${img.naturalWidth}x${img.naturalHeight})`)
+            }
+          }
+          
+          img.onerror = () => {
+            // Thumbnail doesn't exist, video is unavailable
+            wrapper.style.display = 'none'
+            console.log(`Hiding unavailable video (no thumbnail): ${videoId}`)
+          }
+          
+          // Set timeout to hide if image doesn't load within reasonable time
+          const timeout = setTimeout(() => {
+            if (img.naturalWidth === 0 && img.naturalHeight === 0) {
+              wrapper.style.display = 'none'
+              console.log(`Hiding unavailable video (timeout): ${videoId}`)
+            }
+          }, 5000)
+          
+          img.src = thumbnailUrl
+          
+          // Clean up timeout when image loads
+          img.addEventListener('load', () => clearTimeout(timeout), { once: true })
+          img.addEventListener('error', () => clearTimeout(timeout), { once: true })
+        }
+      }
+    }
+
+    // Run check after content is rendered
+    const timer = setTimeout(checkVideos, 2000)
+    return () => clearTimeout(timer)
+  }, [content])
+
   const loadItem = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -156,10 +220,14 @@ export default function LearningItemPage() {
   }
 
 
-  if (loading) {
+  if (loading || (item && !content && generating)) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-teal-50">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-indigo-600 mx-auto" />
+          <p className="text-lg font-medium text-gray-700">Generating learning content...</p>
+          <p className="text-sm text-gray-500">This may take a few moments</p>
+        </div>
       </div>
     )
   }
@@ -174,53 +242,88 @@ export default function LearningItemPage() {
     
     let formatted = text
     
-    // First, handle YouTube links - convert to embedded players
+    // First, handle YouTube links - convert to embedded players with error handling
     const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/gi
     formatted = formatted.replaceAll(youtubeRegex, (match, videoId) => {
-      return `\n\n<div class="youtube-embed my-6">
-        <iframe 
-          width="100%" 
-          height="400" 
-          src="https://www.youtube.com/embed/${videoId}" 
-          frameBorder="0" 
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-          allowFullScreen
-          className="rounded-lg shadow-lg"
-        ></iframe>
+      return `\n\n<div class="youtube-embed-wrapper my-6" data-video-id="${videoId}">
+        <div class="youtube-embed-container relative w-full" style="padding-bottom: 56.25%; background: #000; border-radius: 0.5rem; overflow: hidden;">
+          <iframe 
+            id="yt-${videoId}"
+            class="absolute top-0 left-0 w-full h-full"
+            src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" 
+            frameBorder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowFullScreen
+            onerror="this.parentElement.parentElement.style.display='none'"
+            onload="
+              try {
+                const iframe = this;
+                const checkVideo = setInterval(() => {
+                  try {
+                    if (iframe.contentWindow && iframe.contentWindow.location.href.includes('unavailable')) {
+                      iframe.parentElement.parentElement.style.display='none';
+                      clearInterval(checkVideo);
+                    }
+                  } catch(e) {}
+                }, 1000);
+                setTimeout(() => clearInterval(checkVideo), 5000);
+              } catch(e) {}
+            "
+          ></iframe>
+        </div>
       </div>\n\n`
     })
     
     // Handle YouTube links in markdown format [text](youtube_url)
     const youtubeMarkdownRegex = /\[([^\]]+)\]\((?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})\)/gi
     formatted = formatted.replaceAll(youtubeMarkdownRegex, (match, linkText, videoId) => {
-      return `\n\n<div class="youtube-embed my-6">
-        <p class="text-sm font-medium text-gray-700 mb-2">${linkText}</p>
-        <iframe 
-          width="100%" 
-          height="400" 
-          src="https://www.youtube.com/embed/${videoId}" 
-          frameBorder="0" 
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-          allowFullScreen
-          className="rounded-lg shadow-lg"
-        ></iframe>
+      return `\n\n<div class="youtube-embed-wrapper my-6" data-video-id="${videoId}">
+        <p class="text-sm font-medium text-gray-700 mb-3 text-gray-800">${linkText}</p>
+        <div class="youtube-embed-container relative w-full" style="padding-bottom: 56.25%; background: #000; border-radius: 0.5rem; overflow: hidden;">
+          <iframe 
+            id="yt-${videoId}"
+            class="absolute top-0 left-0 w-full h-full"
+            src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" 
+            frameBorder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowFullScreen
+            onerror="this.parentElement.parentElement.parentElement.style.display='none'"
+            onload="
+              try {
+                const iframe = this;
+                const checkVideo = setInterval(() => {
+                  try {
+                    if (iframe.contentWindow && iframe.contentWindow.location.href.includes('unavailable')) {
+                      iframe.parentElement.parentElement.parentElement.style.display='none';
+                      clearInterval(checkVideo);
+                    }
+                  } catch(e) {}
+                }, 1000);
+                setTimeout(() => clearInterval(checkVideo), 5000);
+              } catch(e) {}
+            "
+          ></iframe>
+        </div>
       </div>\n\n`
     })
     
-    // Handle Udemy links - make them prominent
+    // Handle Udemy links - make them prominent and beautiful
     const udemyRegex = /(https?:\/\/www\.udemy\.com\/course\/[^\s)]+)/gi
     formatted = formatted.replaceAll(udemyRegex, (url) => {
       const cleanUrl = url.replace(/[.,;!?]+$/, '')
-      return `<div class="udemy-link my-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-            <span class="text-white font-bold">U</span>
+      // Extract course name from URL if possible
+      const courseName = cleanUrl.split('/').pop()?.replace(/-/g, ' ').replace(/\d+/g, '').trim() || 'Udemy Course'
+      return `<div class="udemy-link my-6 p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-300 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
+        <div class="flex items-start gap-4">
+          <div class="w-14 h-14 bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+            <span class="text-white font-bold text-xl">U</span>
           </div>
-          <div class="flex-1">
-            <p class="font-semibold text-gray-900 mb-1">Udemy Course</p>
-            <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="text-purple-600 hover:text-purple-800 hover:underline font-medium text-sm break-all">
-              ${cleanUrl}
-              <svg class="w-4 h-4 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="flex-1 min-w-0">
+            <p class="font-bold text-lg text-gray-900 mb-2">🎓 Premium Course on Udemy</p>
+            <p class="text-sm text-gray-600 mb-3 line-clamp-2">${courseName}</p>
+            <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors duration-200 text-sm">
+              <span>Enroll Now</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
               </svg>
             </a>
@@ -233,16 +336,16 @@ export default function LearningItemPage() {
     const udemyMarkdownRegex = /\[([^\]]+)\]\((https?:\/\/www\.udemy\.com\/course\/[^\s)]+)\)/gi
     formatted = formatted.replaceAll(udemyMarkdownRegex, (match, linkText, url) => {
       const cleanUrl = url.replace(/[.,;!?]+$/, '')
-      return `<div class="udemy-link my-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-            <span class="text-white font-bold">U</span>
+      return `<div class="udemy-link my-6 p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-300 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
+        <div class="flex items-start gap-4">
+          <div class="w-14 h-14 bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+            <span class="text-white font-bold text-xl">U</span>
           </div>
-          <div class="flex-1">
-            <p class="font-semibold text-gray-900 mb-1">${linkText}</p>
-            <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="text-purple-600 hover:text-purple-800 hover:underline font-medium text-sm break-all">
-              View Course on Udemy
-              <svg class="w-4 h-4 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="flex-1 min-w-0">
+            <p class="font-bold text-lg text-gray-900 mb-2">🎓 ${linkText}</p>
+            <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors duration-200 text-sm">
+              <span>View Course on Udemy</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
               </svg>
             </a>
@@ -251,7 +354,7 @@ export default function LearningItemPage() {
       </div>`
     })
     
-    // Detect and format other URLs (GitHub, documentation, etc.)
+    // Detect and format other URLs (GitHub, documentation, etc.) with better styling
     const urlRegex = /(https?:\/\/[^\s)]+|github\.com\/[^\s)]+|www\.[^\s)]+)/gi
     formatted = formatted.replaceAll(urlRegex, (url) => {
       // Skip if already processed (YouTube or Udemy)
@@ -261,8 +364,33 @@ export default function LearningItemPage() {
       }
       
       const cleanUrl = url.replace(/[.,;!?]+$/, '')
-      const displayUrl = cleanUrl.length > 50 ? `${cleanUrl.substring(0, 50)}...` : cleanUrl
-      return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800 hover:underline font-medium inline-flex items-center gap-1 break-all">🔗 ${displayUrl} <svg class="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg></a>`
+      const displayUrl = cleanUrl.length > 60 ? `${cleanUrl.substring(0, 60)}...` : cleanUrl
+      
+      // Determine icon based on URL type
+      let icon = '🔗'
+      let bgColor = 'bg-indigo-50'
+      let textColor = 'text-indigo-700'
+      let borderColor = 'border-indigo-200'
+      
+      if (cleanUrl.includes('github.com')) {
+        icon = '💻'
+        bgColor = 'bg-gray-50'
+        textColor = 'text-gray-700'
+        borderColor = 'border-gray-200'
+      } else if (cleanUrl.includes('nodejs.org') || cleanUrl.includes('docs')) {
+        icon = '📚'
+        bgColor = 'bg-blue-50'
+        textColor = 'text-blue-700'
+        borderColor = 'border-blue-200'
+      }
+      
+      return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-3 py-2 ${bgColor} ${borderColor} border rounded-lg ${textColor} hover:${textColor.replace('700', '900')} hover:shadow-sm transition-all duration-200 font-medium text-sm my-2">
+        <span>${icon}</span>
+        <span class="break-all">${displayUrl}</span>
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+        </svg>
+      </a>`
     })
     
     return formatted
@@ -288,29 +416,71 @@ export default function LearningItemPage() {
             {content ? (
               <div className="prose prose-slate max-w-none">
                 <div 
-                  className="text-base leading-relaxed space-y-4"
+                  className="learning-content text-base leading-relaxed"
                   dangerouslySetInnerHTML={{ 
                     __html: formatContent(content)
                       .replaceAll(/\n\n\n+/g, '\n\n')
                       .split('\n\n')
                       .map(para => {
                         if (!para.trim()) return ''
+                        
+                        // Check if it's a code block (triple backticks)
+                        if (para.match(/^```[\s\S]*?```$/)) {
+                          const codeMatch = para.match(/^```(\w+)?\n([\s\S]*?)```$/)
+                          const language = codeMatch ? codeMatch[1] || '' : ''
+                          const code = codeMatch ? codeMatch[2] : para.replace(/^```[\w]*\n?/, '').replace(/```$/, '')
+                          return `<div class="my-6 rounded-lg overflow-hidden border border-gray-200 bg-gray-900">
+                            ${language ? `<div class="px-4 py-2 bg-gray-800 text-gray-300 text-xs font-mono">${language}</div>` : ''}
+                            <pre class="p-4 overflow-x-auto"><code class="text-sm text-gray-100 font-mono leading-relaxed">${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>
+                          </div>`
+                        }
+                        
+                        // Check if it's a list item
+                        if (para.match(/^[\*\-\+]\s+/) || para.match(/^\d+\.\s+/)) {
+                          const isOrdered = para.match(/^\d+\.\s+/)
+                          const listItems = para.split(/\n(?=[\*\-\+]|\d+\.)/).filter(item => item.trim())
+                          if (listItems.length > 0) {
+                            const listTag = isOrdered ? 'ol' : 'ul'
+                            const listClass = isOrdered ? 'list-decimal list-inside' : 'list-disc list-inside'
+                            return `<${listTag} class="${listClass} space-y-2 my-4 text-gray-700 pl-6">
+                              ${listItems.map(item => {
+                                const cleanItem = item.replace(/^[\*\-\+]\s+/, '').replace(/^\d+\.\s+/, '')
+                                const formattedItem = cleanItem
+                                  .replaceAll(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>')
+                                  .replaceAll(/\*(.*?)\*/g, '<em class="italic text-gray-800">$1</em>')
+                                  .replaceAll(/`([^`]+)`/g, '<code class="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-indigo-700">$1</code>')
+                                return `<li class="leading-7">${formattedItem}</li>`
+                              }).join('')}
+                            </${listTag}>`
+                          }
+                        }
+                        
                         // Check if it's a heading
                         if (para.match(/^###\s+/)) {
-                          return `<h3 class="text-xl font-semibold mt-6 mb-3 text-gray-900">${para.replace(/^###\s+/, '')}</h3>`
+                          return `<h3 class="text-xl font-semibold mt-8 mb-4 text-gray-900 leading-tight">${para.replace(/^###\s+/, '')}</h3>`
                         }
                         if (para.match(/^##\s+/)) {
-                          return `<h2 class="text-2xl font-bold mt-8 mb-4 text-gray-900">${para.replace(/^##\s+/, '')}</h2>`
+                          return `<h2 class="text-2xl font-bold mt-10 mb-5 text-gray-900 leading-tight">${para.replace(/^##\s+/, '')}</h2>`
                         }
                         if (para.match(/^#\s+/)) {
-                          return `<h1 class="text-3xl font-bold mt-8 mb-4 text-gray-900">${para.replace(/^#\s+/, '')}</h1>`
+                          return `<h1 class="text-3xl font-bold mt-12 mb-6 text-gray-900 leading-tight">${para.replace(/^#\s+/, '')}</h1>`
                         }
-                        // Regular paragraph
+                        
+                        // Regular paragraph with improved styling
                         let formattedPara = para
                           .replaceAll(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>')
-                          .replaceAll(/\*(.*?)\*/g, '<em class="italic">$1</em>')
-                          .replaceAll(/`([^`]+)`/g, '<code class="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-indigo-700">$1</code>')
-                        return `<p class="mb-4 text-gray-700">${formattedPara}</p>`
+                          .replaceAll(/\*(.*?)\*/g, '<em class="italic text-gray-800">$1</em>')
+                          .replaceAll(/`([^`]+)`/g, '<code class="bg-indigo-50 border border-indigo-200 px-2 py-1 rounded text-sm font-mono text-indigo-800">$1</code>')
+                        
+                        // Check if paragraph contains section headers like "Additional Learning Resources"
+                        if (para.match(/additional.*learning.*resource/i) || (para.match(/^[A-Z][^.!?]*resource/i) && para.length < 50)) {
+                          const headerText = para.replace(/^#+\s*/, '').replace(/\*\*/g, '').trim()
+                          return `<div class="my-8 p-5 bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 border-l-4 border-indigo-500 rounded-r-lg shadow-sm">
+                            <h3 class="text-xl font-bold text-gray-900 mb-0">${headerText}</h3>
+                          </div>`
+                        }
+                        
+                        return `<p class="mb-5 text-gray-700 leading-7 text-[15px]">${formattedPara}</p>`
                       })
                       .join('')
                   }}

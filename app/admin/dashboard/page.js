@@ -39,6 +39,27 @@ export default function AdminDashboard() {
     if (tab && ['overview', 'learners', 'plans', 'pending'].includes(tab)) {
       setActiveTab(tab)
     }
+
+    // Reload data when tab becomes visible or window regains focus (e.g., after returning from approve page)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Tab became visible, reloading admin dashboard data...')
+        loadData()
+      }
+    }
+
+    const handleFocus = () => {
+      console.log('Window regained focus, reloading admin dashboard data...')
+      loadData()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [searchParams])
 
   const checkAuth = async () => {
@@ -109,7 +130,8 @@ export default function AdminDashboard() {
       // Calculate stats - ensure we're counting correctly
       const totalLearnersCount = learnersData?.length || 0
       const pendingPlans = plans?.filter(p => p.status === 'pending_approval') || []
-      const inProgressPlans = plans?.filter(p => p.status === 'in_progress') || []
+      // In Progress includes both 'approved' (ready to start) and 'in_progress' (actively being worked on)
+      const inProgressPlans = plans?.filter(p => p.status === 'approved' || p.status === 'in_progress') || []
       const completedPlans = plans?.filter(p => p.status === 'completed') || []
 
       console.log('Dashboard Stats:', {

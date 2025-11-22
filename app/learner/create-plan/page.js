@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
-import { Loader2, MessageSquare, Send, BookOpen } from 'lucide-react'
+import { Loader2, MessageSquare, Send, BookOpen, Sparkles, ArrowLeft, LogOut, User as UserIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 
@@ -37,8 +37,11 @@ function CreateLearningPlanPageContent() {
   const [planId, setPlanId] = useState(null)
   const [hasActivePlan, setHasActivePlan] = useState(false)
   const [existingPlan, setExistingPlan] = useState(null)
+  const [userEmail, setUserEmail] = useState('')
+  const [userName, setUserName] = useState('')
 
   useEffect(() => {
+    loadUserInfo()
     checkActivePlan()
     loadTechStacks()
     loadUserTechStacks()
@@ -49,6 +52,28 @@ function CreateLearningPlanPageContent() {
       loadDraftPlan(draftId)
     }
   }, [searchParams])
+
+  const loadUserInfo = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUserEmail(user.email || '')
+        // Try to get name from user metadata or email
+        const name = user.user_metadata?.full_name || 
+                     user.user_metadata?.name || 
+                     user.email?.split('@')[0] || 
+                     'User'
+        setUserName(name)
+      }
+    } catch (error) {
+      console.error('Error loading user info:', error)
+    }
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+  }
 
   const checkActivePlan = async () => {
     try {
@@ -367,13 +392,16 @@ function CreateLearningPlanPageContent() {
           .eq('id', currentPlanId)
 
         // Add AI response to chat
+        // Note: We'll identify AI messages by checking if message starts with "Learning plan has been updated"
         const aiMessage = `Learning plan has been updated based on your feedback.`
+        // For now, we'll still save with user.id but mark it differently in the UI
+        // In a production system, you'd want to add an is_ai boolean field to the schema
         await supabase
           .from('admin_chat_messages')
           .insert({
             learning_plan_id: currentPlanId,
             sender_id: user.id,
-            message: aiMessage
+            message: `[AI] ${aiMessage}` // Prefix to identify AI messages
           })
       }
 
@@ -515,37 +543,95 @@ function CreateLearningPlanPageContent() {
         typeof ts === 'object' ? ts.techStackId : ts
       )
 
-      // Create learning plan
-      const planInsertData = {
-        learner_id: user.id,
-        goals: formData.goals,
-        hours_per_week: parseInt(formData.hoursPerWeek),
-        months: parseInt(formData.months),
-        is_project_related: formData.isProjectRelated,
-        project_name: formData.projectName || null,
-        tech_stacks: techStackIds,
-        generated_plan: generatedPlan,
-        adjusted_plan: adjustedPlan,
-        status: 'pending_approval'
-      }
+      let learningPlan
 
-      // Only add embedding fields if they exist (PostgreSQL JSONB)
-      if (embedding && Array.isArray(embedding)) {
-        planInsertData.embedding = embedding
-      }
-      if (embeddingMetadata && typeof embeddingMetadata === 'object') {
-        planInsertData.embedding_metadata = embeddingMetadata
-      }
+      // If planId exists, update the existing draft plan; otherwise create a new one
+      if (planId) {
+        // Update existing draft plan
+        const planUpdateData = {
+          goals: formData.goals,
+          hours_per_week: parseInt(formData.hoursPerWeek),
+          months: parseInt(formData.months),
+          is_project_related: formData.isProjectRelated,
+          project_name: formData.projectName || null,
+          tech_stacks: techStackIds,
+          generated_plan: generatedPlan,
+          adjusted_plan: adjustedPlan,
+          status: 'pending_approval' // Change status from draft to pending_approval
+        }
 
-      const { data: learningPlan, error: planError } = await supabase
-        .from('learning_plans')
-        .insert(planInsertData)
-        .select()
-        .single()
+        // Only add embedding fields if they exist (PostgreSQL JSONB)
+        if (embedding && Array.isArray(embedding)) {
+          planUpdateData.embedding = embedding
+        }
+        if (embeddingMetadata && typeof embeddingMetadata === 'object') {
+          planUpdateData.embedding_metadata = embeddingMetadata
+        }
 
-      if (planError) {
-        console.error('Error creating learning plan:', planError)
-        throw planError
+        console.log('Updating draft plan:', { planId, planUpdateData })
+        
+        const { data: updatedPlan, error: updateError } = await supabase
+          .from('learning_plans')
+          .update(planUpdateData)
+          .eq('id', planId)
+          .eq('learner_id', user.id) // Ensure user owns this plan
+          .select()
+          .single()
+
+        if (updateError) {
+          console.error('Error updating learning plan:', updateError)
+          console.error('Update error details:', JSON.stringify(updateError, null, 2))
+          throw updateError
+        }
+
+        if (!updatedPlan) {
+          console.error('Update returned no data')
+          throw new Error('Failed to update learning plan - no data returned')
+        }
+
+        console.log('Plan updated successfully:', { id: updatedPlan.id, status: updatedPlan.status })
+        learningPlan = updatedPlan
+
+        // Delete existing learning items for this plan before creating new ones
+        await supabase
+          .from('learning_items')
+          .delete()
+          .eq('learning_plan_id', planId)
+      } else {
+        // Create new learning plan
+        const planInsertData = {
+          learner_id: user.id,
+          goals: formData.goals,
+          hours_per_week: parseInt(formData.hoursPerWeek),
+          months: parseInt(formData.months),
+          is_project_related: formData.isProjectRelated,
+          project_name: formData.projectName || null,
+          tech_stacks: techStackIds,
+          generated_plan: generatedPlan,
+          adjusted_plan: adjustedPlan,
+          status: 'pending_approval'
+        }
+
+        // Only add embedding fields if they exist (PostgreSQL JSONB)
+        if (embedding && Array.isArray(embedding)) {
+          planInsertData.embedding = embedding
+        }
+        if (embeddingMetadata && typeof embeddingMetadata === 'object') {
+          planInsertData.embedding_metadata = embeddingMetadata
+        }
+
+        const { data: newPlan, error: planError } = await supabase
+          .from('learning_plans')
+          .insert(planInsertData)
+          .select()
+          .single()
+
+        if (planError) {
+          console.error('Error creating learning plan:', planError)
+          throw planError
+        }
+
+        learningPlan = newPlan
       }
 
       // Create learning items - ensure all required fields are present
@@ -570,8 +656,35 @@ function CreateLearningPlanPageContent() {
       }
 
       console.log(`Successfully created ${learningItems.length} learning items`)
+      
+      // Verify the plan status was updated correctly
+      if (planId) {
+        const { data: verifyPlan } = await supabase
+          .from('learning_plans')
+          .select('status')
+          .eq('id', planId)
+          .single()
+        
+        console.log('Plan status after update:', verifyPlan?.status)
+        
+        if (verifyPlan?.status !== 'pending_approval') {
+          console.error('Status update failed! Current status:', verifyPlan?.status)
+          toast.error('Failed to update plan status. Please try again.')
+          return
+        }
+      }
+      
       toast.success('Learning plan submitted for approval!')
+      
+      // Clear local state
+      setPlanId(null)
+      setGeneratedPlan('')
+      setAdjustedPlan('')
+      setChatMessages([])
+      
+      // Redirect to dashboard - the dashboard will reload data on mount
       router.push('/learner/dashboard')
+      router.refresh() // Force refresh to reload data
     } catch (error) {
       console.error('Error submitting plan:', error)
       toast.error(error.message || 'Failed to submit learning plan')
@@ -776,31 +889,63 @@ function CreateLearningPlanPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-teal-50 p-4 py-8 pb-24">
-      <div className="container mx-auto max-w-7xl space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-teal-50">
+      {/* Header */}
+      <nav className="bg-white border-b sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <UserIcon className="h-6 w-6 text-indigo-600" />
+            <h1 className="text-xl font-bold text-gray-900">Learner Portal</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-sm font-medium text-gray-900">{userName}</p>
+              <p className="text-xs text-gray-500">{userEmail}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
+          </div>
+        </div>
+      </nav>
+
+      <div className="container mx-auto px-4 py-8 pb-24 max-w-4xl">
+        {/* Back Button */}
+        <Link href="/learner/dashboard" className="inline-block mb-6">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </Link>
+
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">Create Learning Plan</CardTitle>
+            <CardTitle className="text-2xl">Create AI-Generated Learning Plan</CardTitle>
             <CardDescription>
-              Generate a personalized learning plan based on your goals and availability
+              Provide your learning goals and we'll generate a personalized plan
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="goals">Learning Goals/Objectives *</Label>
+              <Label htmlFor="goals">Learning Goal / Objectives *</Label>
               <Textarea
                 id="goals"
-                placeholder="Describe what you want to learn and achieve..."
+                placeholder="Describe what you want to learn and achieve... (e.g., Master React and build modern web applications)"
                 value={formData.goals}
                 onChange={(e) => setFormData({ ...formData, goals: e.target.value })}
                 rows={4}
+                className="resize-none"
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                Be specific about your learning objectives and desired outcomes
+              </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="hoursPerWeek">Hours per Week *</Label>
+                <Label htmlFor="hoursPerWeek">Hours Per Week *</Label>
                 <Input
                   id="hoursPerWeek"
                   type="number"
@@ -810,6 +955,9 @@ function CreateLearningPlanPageContent() {
                   onChange={(e) => setFormData({ ...formData, hoursPerWeek: e.target.value })}
                   required
                 />
+                <p className="text-xs text-muted-foreground">
+                  How much time can you dedicate weekly?
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -818,38 +966,61 @@ function CreateLearningPlanPageContent() {
                   id="months"
                   type="number"
                   min="1"
-                  placeholder="e.g., 2"
+                  placeholder="e.g., 3"
                   value={formData.months}
                   onChange={(e) => setFormData({ ...formData, months: e.target.value })}
                   required
                 />
+                <p className="text-xs text-muted-foreground">
+                  Timeline for completing this plan
+                </p>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="isProjectRelated"
-                  checked={formData.isProjectRelated}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isProjectRelated: checked })}
-                />
-                <Label htmlFor="isProjectRelated">Is this learning plan related to an existing project?</Label>
+            <div className="space-y-3">
+              <Label>Is this learning plan related to your existing project? *</Label>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    id="projectYes"
+                    name="isProjectRelated"
+                    checked={formData.isProjectRelated === true}
+                    onChange={() => setFormData({ ...formData, isProjectRelated: true })}
+                    className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <Label htmlFor="projectYes" className="font-normal cursor-pointer">Yes</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    id="projectNo"
+                    name="isProjectRelated"
+                    checked={formData.isProjectRelated === false}
+                    onChange={() => setFormData({ ...formData, isProjectRelated: false })}
+                    className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <Label htmlFor="projectNo" className="font-normal cursor-pointer">No</Label>
+                </div>
               </div>
               {formData.isProjectRelated && (
-                <Input
-                  placeholder="Project name"
-                  value={formData.projectName}
-                  onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
-                />
+                <div className="mt-3">
+                  <Input
+                    placeholder="Project name"
+                    value={formData.projectName}
+                    onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
+                    className="max-w-md"
+                  />
+                </div>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label>Select Tech Stacks *</Label>
+            <div className="space-y-3">
+              <Label>Select Tech Stacks for this Learning Plan *</Label>
               <p className="text-sm text-muted-foreground">
-                Select from your profile tech stacks
+                Choose from your profile. Need to add more? Update your profile first.
               </p>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {userTechStacks.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No tech stacks in your profile. Please update your profile first.
@@ -881,7 +1052,7 @@ function CreateLearningPlanPageContent() {
                             }
                           }}
                         />
-                        <Label htmlFor={`tech-${techStackId}`}>{ts.name}</Label>
+                        <Label htmlFor={`tech-${techStackId}`} className="font-normal cursor-pointer">{ts.name}</Label>
                       </div>
                     )
                   })
@@ -889,11 +1060,12 @@ function CreateLearningPlanPageContent() {
               </div>
             </div>
 
-            <div className="flex gap-4">
+            <div className="flex justify-end pt-4">
               <Button
                 onClick={handleGeneratePlan}
                 disabled={generating || !formData.goals || !formData.hoursPerWeek || !formData.months || formData.selectedTechStacks.length === 0}
-                className="bg-indigo-600 hover:bg-indigo-700"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                size="lg"
               >
                 {generating ? (
                   <>
@@ -901,7 +1073,10 @@ function CreateLearningPlanPageContent() {
                     Generating...
                   </>
                 ) : (
-                  'Generate Learning Plan'
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Generate Learning Plan
+                  </>
                 )}
               </Button>
             </div>
@@ -954,7 +1129,23 @@ function CreateLearningPlanPageContent() {
                           </div>
                         ) : (
                           chatMessages.map((msg, idx) => {
-                            const isUser = msg.users?.role === 'learner' || msg.sender === 'user'
+                            // Check if message is from AI
+                            // AI messages are identified by:
+                            // 1. sender field is 'ai' (for local messages)
+                            // 2. message starts with '[AI]' prefix (for database messages)
+                            // 3. message matches the AI response pattern
+                            const isAIMessage = msg.sender === 'ai' || 
+                                              msg.message?.startsWith('[AI]') ||
+                                              msg.message === 'Learning plan has been updated based on your feedback.'
+                            
+                            // Check if message is from user
+                            const isUser = !isAIMessage && (msg.users?.role === 'learner' || msg.sender === 'user')
+                            
+                            // Clean message text (remove [AI] prefix if present)
+                            const messageText = msg.message?.startsWith('[AI]') 
+                              ? msg.message.replace('[AI]', '').trim()
+                              : msg.message
+                            
                             return (
                               <div
                                 key={idx}
@@ -965,9 +1156,9 @@ function CreateLearningPlanPageContent() {
                                 }`}
                               >
                                 <p className="text-xs font-medium mb-1 text-gray-600">
-                                  {isUser ? 'You' : msg.users?.role === 'admin' ? 'Admin' : 'AI'}
+                                  {isUser ? 'You' : isAIMessage ? 'AI' : msg.users?.role === 'admin' ? 'Admin' : 'AI'}
                                 </p>
-                                <p className="text-sm">{msg.message}</p>
+                                <p className="text-sm">{messageText}</p>
                                 <p className="text-xs text-muted-foreground mt-1">
                                   {new Date(msg.created_at).toLocaleTimeString()}
                                 </p>
