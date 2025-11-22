@@ -705,8 +705,8 @@ export default function CreateLearningPlanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-teal-50 p-4 py-8">
-      <div className="container mx-auto max-w-4xl space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-teal-50 p-4 py-8 pb-24">
+      <div className="container mx-auto max-w-7xl space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">Create Learning Plan</CardTitle>
@@ -836,98 +836,139 @@ export default function CreateLearningPlanPage() {
             </div>
 
             {generatedPlan && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Generated Learning Plan</Label>
-                  <Textarea
-                    value={adjustedPlan}
-                    onChange={(e) => setAdjustedPlan(e.target.value)}
-                    rows={20}
-                    className="font-mono text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Use the chat below to improve the plan. The plan will update automatically based on your feedback.
-                  </p>
+              <div className="space-y-6">
+                {/* Two Column Layout */}
+                <div className="grid lg:grid-cols-2 gap-6">
+                  {/* Left Panel: Learning Plan Details */}
+                  <Card className="border-2">
+                    <CardHeader>
+                      <CardTitle className="text-xl">Learning Plan Details</CardTitle>
+                      <CardDescription>Review and edit the learning plan as needed</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-3">
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Plan Content</h3>
+                          <div className="prose prose-sm max-w-none">
+                            <div className="whitespace-pre-wrap text-sm leading-relaxed bg-gray-50 p-4 rounded-lg border max-h-[500px] overflow-y-auto">
+                              {adjustedPlan || generatedPlan}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Right Panel: AI Assistant */}
+                  <Card className="border-2">
+                    <CardHeader>
+                      <CardTitle className="text-xl flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5" />
+                        AI Assistant
+                      </CardTitle>
+                      <CardDescription>Chat with AI to improve and adjust the learning plan</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Chat Messages */}
+                      <div className="space-y-2 max-h-[400px] overflow-y-auto border rounded-lg p-4 bg-gray-50 min-h-[200px]">
+                        {chatMessages.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center h-full py-8">
+                            <MessageSquare className="h-12 w-12 text-gray-300 mb-2" />
+                            <p className="text-sm text-muted-foreground text-center">
+                              No messages yet
+                            </p>
+                            <p className="text-xs text-muted-foreground text-center mt-1">
+                              Ask the AI to help refine the learning plan
+                            </p>
+                          </div>
+                        ) : (
+                          chatMessages.map((msg, idx) => {
+                            const isUser = msg.users?.role === 'learner' || msg.sender === 'user'
+                            return (
+                              <div
+                                key={idx}
+                                className={`p-3 rounded-lg mb-2 ${
+                                  isUser
+                                    ? 'bg-indigo-100 ml-auto max-w-[80%]'
+                                    : 'bg-white mr-auto max-w-[80%] border'
+                                }`}
+                              >
+                                <p className="text-xs font-medium mb-1 text-gray-600">
+                                  {isUser ? 'You' : msg.users?.role === 'admin' ? 'Admin' : 'AI'}
+                                </p>
+                                <p className="text-sm">{msg.message}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {new Date(msg.created_at).toLocaleTimeString()}
+                                </p>
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+
+                      {/* Chat Input */}
+                      <div className="flex gap-2">
+                        <Input
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                          placeholder="Ask AI to adjust the plan... (e.g., 'Add more practical exercises' or 'Reduce the timeline')"
+                          disabled={improving}
+                          className="flex-1"
+                        />
+                        <Button
+                          onClick={handleSendMessage}
+                          disabled={improving || !newMessage.trim()}
+                          className="bg-indigo-600 hover:bg-indigo-700"
+                          size="icon"
+                        >
+                          {improving ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* Tip */}
+                      <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <BookOpen className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-blue-800">
+                          <span className="font-semibold">Tip:</span> You can ask the AI to adjust difficulty, add specific topics, or restructure modules.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
 
-                {/* Chat Interface for Plan Improvement */}
-                <Card className="border-t-4 border-t-indigo-600">
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <MessageSquare className="h-5 w-5" />
-                      Improve Learning Plan
-                    </CardTitle>
-                    <CardDescription>
-                      Chat with AI to refine and improve your learning plan. The plan will update automatically.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-4 bg-gray-50">
-                      {chatMessages.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          Start a conversation to improve your learning plan...
-                        </p>
-                      ) : (
-                        chatMessages.map((msg, idx) => {
-                          const isUser = msg.users?.role === 'learner' || msg.sender === 'user'
-                          return (
-                            <div
-                              key={idx}
-                              className={`p-3 rounded-lg mb-2 ${
-                                isUser
-                                  ? 'bg-indigo-100 ml-auto max-w-[80%]'
-                                  : 'bg-gray-100 mr-auto max-w-[80%]'
-                              }`}
-                            >
-                              <p className="text-xs font-medium mb-1">
-                                {isUser ? 'You' : msg.users?.role === 'admin' ? 'Admin' : 'AI'}
-                              </p>
-                              <p className="text-sm">{msg.message}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {new Date(msg.created_at).toLocaleTimeString()}
-                              </p>
-                            </div>
-                          )
-                        })
-                      )}
+                {/* Bottom Action Bar */}
+                <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 z-10">
+                  <div className="container mx-auto max-w-7xl flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <BookOpen className="h-4 w-4" />
+                      <span>Ready to submit your learning plan for admin approval</span>
                     </div>
-                    <div className="flex gap-2">
-                      <Input
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                        placeholder="Type your improvement request..."
-                        disabled={improving}
-                      />
+                    <div className="flex gap-3">
                       <Button
-                        onClick={handleSendMessage}
-                        disabled={improving || !newMessage.trim()}
+                        onClick={handleSubmit}
+                        disabled={loading}
                         className="bg-indigo-600 hover:bg-indigo-700"
                       >
-                        {improving ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Submitting...
+                          </>
                         ) : (
-                          <Send className="h-4 w-4" />
+                          <>
+                            <Send className="mr-2 h-4 w-4" />
+                            Submit for Approval
+                          </>
                         )}
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
-
-                <Button
-                  onClick={handleSubmit}
-                  disabled={loading}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    'Submit for Approval'
-                  )}
-                </Button>
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>
