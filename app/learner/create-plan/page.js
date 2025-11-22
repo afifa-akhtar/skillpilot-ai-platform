@@ -910,7 +910,7 @@ function CreateLearningPlanPageContent() {
         </div>
       </nav>
 
-      <div className="container mx-auto px-4 py-8 pb-24 max-w-4xl">
+      <div className="container mx-auto px-4 py-8 pb-24 max-w-7xl">
         {/* Back Button */}
         <Link href="/learner/dashboard" className="inline-block mb-6">
           <Button variant="ghost" size="sm">
@@ -1081,10 +1081,13 @@ function CreateLearningPlanPageContent() {
               </Button>
             </div>
 
-            {generatedPlan && (
-              <div className="space-y-6">
-                {/* Two Column Layout */}
-                <div className="grid lg:grid-cols-2 gap-6">
+          </CardContent>
+        </Card>
+
+        {generatedPlan && (
+          <div className="mt-6 space-y-6">
+            {/* Two Column Layout */}
+            <div className="grid lg:grid-cols-2 gap-6">
                   {/* Left Panel: Learning Plan Details */}
                   <Card className="border-2">
                     <CardHeader>
@@ -1231,10 +1234,8 @@ function CreateLearningPlanPageContent() {
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          </div>
+        )}
       </div>
     </div>
   )
