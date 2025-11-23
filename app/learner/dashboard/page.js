@@ -544,9 +544,9 @@ export default function LearnerDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="flex gap-2">
-                        <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                          <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                                                        <BookOpen className="mr-2 h-4 w-4" />
                           <Link href={`/learner/learn/${currentPlan.id}`}>
-                            <BookOpen className="mr-2 h-4 w-4" />
                             Continue Learning
                           </Link>
                         </Button>
@@ -636,9 +636,10 @@ export default function LearnerDashboard() {
                       </div>
                       <Progress value={calculateProgress()} />
                     </div>
-                    <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                      <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                                                <BookOpen className="mr-2 h-4 w-4" />
+
                       <Link href={`/learner/learn/${currentPlan.id}`}>
-                        <BookOpen className="mr-2 h-4 w-4" />
                         Continue Learning
                       </Link>
                     </Button>

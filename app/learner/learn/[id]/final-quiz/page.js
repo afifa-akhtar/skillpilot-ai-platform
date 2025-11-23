@@ -159,7 +159,7 @@ export default function FinalQuizPage() {
       })
 
       const score = Math.round((correct / questions.length) * 100)
-      const passed = score >= 30
+      const passed = score >= 10
 
       // Set score state immediately (before async database update)
       setQuizScore(score)
@@ -210,7 +210,7 @@ export default function FinalQuizPage() {
 
         toast.success(`🎉 Congratulations! You completed the learning plan with ${score}%!`)
       } else {
-        toast.error(`You scored ${score}%. You need 30% to pass. Please review and try again.`)
+        toast.error(`You scored ${score}%. You need 10% to pass. Please review and try again.`)
       }
     } catch (error) {
       console.error('Error submitting quiz:', error)
@@ -437,7 +437,7 @@ export default function FinalQuizPage() {
                             <p className="text-lg mb-2">
                               {quizPassed
                                 ? '🎉 Congratulations! You passed the final quiz and completed your learning plan!'
-                                : `You scored ${quizScore}%. You need 30% to pass. Please review the content and try again.`}
+                                : `You scored ${quizScore}%. You need 10% to pass. Please review the content and try again.`}
                             </p>
                             <p className="text-sm text-muted-foreground">
                               {questions.filter((q, i) => answers[i] === q.correctAnswer).length} out of {questions.length} questions correct

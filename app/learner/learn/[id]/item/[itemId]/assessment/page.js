@@ -154,7 +154,7 @@ export default function AssessmentPage() {
       }
 
       const score = Math.round((correct / questions.length) * 100)
-      const passed = score >= 30
+      const passed = score >= 10
 
       // Set score state immediately
       setAssessmentScore(score)
@@ -190,7 +190,7 @@ export default function AssessmentPage() {
 
         toast.success(`Congratulations! You passed with ${score}%`)
       } else {
-        toast.error(`You scored ${score}%. You need 30% to pass.`)
+        toast.error(`You scored ${score}%. You need 10% to pass.`)
       }
     } catch (error) {
       console.error('Error submitting assessment:', error)
@@ -240,7 +240,7 @@ export default function AssessmentPage() {
               Module Assessment: {item.title}
             </CardTitle>
             <CardDescription>
-              Complete the assessment below to finish this module. You need 30% to pass.
+              Complete the assessment below to finish this module. You need 10% to pass.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -356,7 +356,7 @@ export default function AssessmentPage() {
                             <p className="text-base mb-2">
                               {assessmentPassed
                                 ? '✅ Congratulations! You passed the assessment.'
-                                : `❌ You scored ${assessmentScore}%. You need 30% to pass. Please review the content and try again.`}
+                                : `❌ You scored ${assessmentScore}%. You need 10% to pass. Please review the content and try again.`}
                             </p>
                             <p className="text-sm text-muted-foreground">
                               {questions.filter((q, i) => answers[i] === q.correctAnswer).length} out of {questions.length} questions correct

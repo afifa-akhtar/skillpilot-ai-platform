@@ -251,9 +251,10 @@ export default function LearnPage() {
                                 )}
                               </>
                             ) : (
-                              <div className="flex flex-col items-end gap-2">
+                                <div className="flex flex-col items-end gap-2">
+                                                                    <BookOpen className="mr-2 h-4 w-4" />
+
                                 <Button size="sm" disabled variant="outline">
-                                  <BookOpen className="mr-2 h-4 w-4" />
                                   Locked
                                 </Button>
                                 <p className="text-xs text-muted-foreground text-right">

@@ -870,8 +870,9 @@ function CreateLearningPlanPageContent() {
               </div>
               <div className="flex gap-4">
                 <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
+                                      <BookOpen className="mr-2 h-4 w-4" />
+
                   <Link href={`/learner/learn/${existingPlan.id}`}>
-                    <BookOpen className="mr-2 h-4 w-4" />
                     Continue Learning
                   </Link>
                 </Button>
